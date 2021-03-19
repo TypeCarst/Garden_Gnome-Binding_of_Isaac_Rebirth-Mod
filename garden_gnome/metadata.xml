@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<metadata>
+    <name>Garden Gnome</name>
+    <directory>garden_gnome</directory>
+    <id>0</id>
+    <description>Where do they always come from? Help your little friend home and don't leave him behind! He probably won't reward you with nothing... 
+
+- Find him in the super secret room on floor 1 
+- Take him with you to Chest or Dark Room to gain 100% access to the Void 
+- He will get lost, if you leave him behind in another room</description>
+    <version>1.0</version>
+    <visibility>Private</visibility>
+    <tag id="Lua"/>
+    <tag id="Trinkets"/>
+</metadata>

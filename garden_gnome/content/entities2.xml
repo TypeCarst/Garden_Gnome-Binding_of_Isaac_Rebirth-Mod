@@ -1,0 +1,5 @@
+<entities anm2root="gfx/" version="5">
+	<entity anm2path="017.1333_gnomekeeper.anm2" subtype="0" baseHP="5" boss="0" champion="0" collisionDamage="0" collisionMass="100" collisionRadius="1" friction="1" id="17" name="Shopkeeper" numGridCollisionPoints="0" shadowSize="24" stageHP="0" variant="1333" shutdoors="false">
+	        <gibs amount="6" blood="1" bone="1" eye="0" gut="1" large="0" />
+	</entity>
+</entities>
