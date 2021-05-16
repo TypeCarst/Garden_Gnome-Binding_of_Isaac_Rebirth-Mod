@@ -19,14 +19,17 @@ function MOD:PostUpdate()
     local game            = Game();
     local room            = game:GetRoom();
     local level           = game:GetLevel();
-    local p1              = Isaac.GetPlayer(0);
-    local p2              = Isaac.GetPlayer(1);
-    local holdingChompski = p1:HasTrinket(CHOMPSKI) or p2:HasTrinket(CHOMPSKI);
+    local mainPlayer      = Isaac.GetPlayer(0);
+    local holdingChompski = IsAPlayerHoldingChompski(game);
     local reevaluateCache = false;
+
+    local isCoopMode = game:GetNumPlayers() > 1;
     
     if game:GetFrameCount() <= 1 then
-        Init(game, p1); -- reset values on a new run
-        Init(game, p2); -- reset values on a new run
+        -- reset values on a new run
+        for i=0,game:GetNumPlayers() - 1 do
+            Init(game, Isaac.GetPlayer(i));
+        end
     end
     
     -- check if goal was already reached or chompski was left behind
@@ -35,10 +38,13 @@ function MOD:PostUpdate()
     end
     
     if portalKeeper ~= nil then -- chompski delivered to destination
-        -- TODO: check if isaac touches keeper/house --> room:GetGridEntityFromPos(p1.Position)
+        -- TODO: check if isaac touches keeper/house --> room:GetGridEntityFromPos(mainPlayer.Position)
         if not voidPortalSpawned and portalKeeper:HasMortalDamage() then
-            p1:AnimateHappy();
-            p2:AnimateHappy();
+
+            for i=0, game:GetNumPlayers() - 1 do
+                Isaac.GetPlayer(i):AnimateHappy();
+            end
+
             room:SpawnGridEntity(67, GridEntityType.GRID_TRAPDOOR, 0, 0, 1); -- spawn portal to The Void
             voidPortalSpawned = true;
         end
@@ -65,20 +71,24 @@ function MOD:PostUpdate()
         end
     elseif chompskiKeeper ~= nil then -- found spawn location of chompski
         if chompskiKeeper:HasMortalDamage() then -- check if chompski keeper was destroyed
-            Isaac.Spawn(EntityType.ENTITY_PICKUP, PickupVariant.PICKUP_TRINKET, CHOMPSKI, chompskiKeeper.Position, Vector(1, 1), p1)
+            Isaac.Spawn(EntityType.ENTITY_PICKUP, PickupVariant.PICKUP_TRINKET, CHOMPSKI, chompskiKeeper.Position, Vector(1, 1), mainPlayer)
             wasChompskiSpawned = true;
         end
     end
     
     -- update player stats if chompski was picked up or dropped
     if reevaluateCache then
-        ReevaluateCache(p1);
-        ReevaluateCache(p2);
+        for i=0,game:GetNumPlayers() - 1 do
+            local player = Isaac.GetPlayer(i);
+            if player:HasTrinket(CHOMPSKI) then
+                ReevaluateCache(player);
+            end
+        end
     end
 end
 
 function Init(game, player)
-    wasChompskiSpawned 		= false;
+    wasChompskiSpawned      = false;
     pickedUpChompski        = false;
     voidPortalSpawned       = false;
     lostChompski            = false;
@@ -90,8 +100,8 @@ function Init(game, player)
     debugText = "";
     
     -- prevent chompski from spawning in other locations
-    local itempool = game:GetItemPool();
-    itempool:RemoveTrinket(CHOMPSKI);
+    --local itempool = game:GetItemPool();
+    --itempool:RemoveTrinket(CHOMPSKI);
     
     if isDebug then
         player:AddCollectible(CollectibleType.COLLECTIBLE_COMPASS,0,false);
@@ -99,6 +109,16 @@ function Init(game, player)
         player:AddCollectible(CollectibleType.COLLECTIBLE_BLUE_MAP,0,false);
         player:AddCollectible(CollectibleType.COLLECTIBLE_SAD_BOMBS,0,false);
     end
+end
+
+function IsAPlayerHoldingChompski(game)
+    for i=0,game:GetNumPlayers()-1 do
+        if Isaac.GetPlayer(i):HasTrinket(CHOMPSKI) then
+            return true;
+        end
+    end
+
+    return false;
 end
 
 function ReevaluateCache(player)
@@ -117,34 +137,32 @@ end
 
 -- add status changes, while holding Chompski
 function MOD:OnCache(player, cacheFlag)
-    local holdsChompski = player:HasTrinket(CHOMPSKI);
-    if holdsChompski then
-        if cacheFlag == CacheFlag.CACHE_DAMAGE then
-            player.Damage = player.Damage - 0.2
-        end
-        if cacheFlag == CacheFlag.CACHE_SPEED then
-            player.MoveSpeed = player.MoveSpeed * 0.8
-        end
+    if cacheFlag == CacheFlag.CACHE_DAMAGE then
+        player.Damage = player.Damage - 0.2
+    end
+    if cacheFlag == CacheFlag.CACHE_SPEED then
+        player.MoveSpeed = player.MoveSpeed * 0.8
     end
 end
 
 function MOD:OnRoomChange()
-    local game   = Game();
-    local room   = game:GetRoom();
-    local level  = game:GetLevel();
-    local p1     = Isaac.GetPlayer(0);
-    local p2     = Isaac.GetPlayer(1);
-    local p1HoldsChompski = p1:HasTrinket(CHOMPSKI);
-    local p2HoldsChompski = p2:HasTrinket(CHOMPSKI);
-    local holdingChompski = p1HoldsChompski or p2HoldsChompski;
+    local game       = Game();
+    local room       = game:GetRoom();
+    local level      = game:GetLevel();     
+    local mainPlayer = Isaac.GetPlayer(0);
+
+    local isCoopMode = game:GetNumPlayers() > 1;
 
     -- spawn goal to deliver chompski to when right level was reached with chompski
     if wasChompskiSpawned and holdingChompski then
         if level:GetStage() == LevelStage.STAGE1_2 and room:GetFrameCount() == 0 then -- Chompski was delivered to The Chest or Dark Room
             local freePosition = room:FindFreePickupSpawnPosition(Vector(80,160), 0, true);
-            portalKeeper = Isaac.Spawn(EntityType.ENTITY_SHOPKEEPER, 0, 0, freePosition, Vector(0,0), p1);
-            p1:TryRemoveTrinket(CHOMPSKI);
-            p2:TryRemoveTrinket(CHOMPSKI);
+            portalKeeper = Isaac.Spawn(EntityType.ENTITY_SHOPKEEPER, 0, 0, freePosition, Vector(0,0), mainPlayer);
+
+            for i=0,game:GetNumPlayers() - 1 do
+                Isaac.GetPlayer(i):TryRemoveTrinket(CHOMPSKI);
+            end
+            
             return;
         end
     end
@@ -153,7 +171,7 @@ function MOD:OnRoomChange()
     if chompskiKeeper == nil then      
         if level:GetStage() == LevelStage.STAGE1_1 and room:GetType() == RoomType.ROOM_SUPERSECRET then
             local freePosition = room:FindFreePickupSpawnPosition(Vector(80,160), 0, true);
-            chompskiKeeper = Isaac.Spawn(EntityType.ENTITY_SHOPKEEPER, 1333, 0, freePosition, Vector(0,0), p1);
+            chompskiKeeper = Isaac.Spawn(EntityType.ENTITY_SHOPKEEPER, 1333, 0, freePosition, Vector(0,0), mainPlayer);
         end
         return;
     end
