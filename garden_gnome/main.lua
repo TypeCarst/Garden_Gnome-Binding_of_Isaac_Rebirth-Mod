@@ -27,7 +27,7 @@ function MOD:PostUpdate()
     
     if game:GetFrameCount() <= 1 then
         -- reset values on a new run
-        for i=0,game:GetNumPlayers() - 1 do
+        for i=0,game:GetNumPlayers()-1,1 do
             Init(game, Isaac.GetPlayer(i));
         end
     end
@@ -41,8 +41,10 @@ function MOD:PostUpdate()
         -- TODO: check if isaac touches keeper/house --> room:GetGridEntityFromPos(mainPlayer.Position)
         if not voidPortalSpawned and portalKeeper:HasMortalDamage() then
 
-            for i=0, game:GetNumPlayers() - 1 do
-                Isaac.GetPlayer(i):AnimateHappy();
+            for i=0, game:GetNumPlayers()-1,1 do
+                local player = Isaac.GetPlayer(i);
+                player:TryRemoveTrinket(CHOMPSKI);
+                player:AnimateHappy();
             end
 
             room:SpawnGridEntity(67, GridEntityType.GRID_TRAPDOOR, 0, 0, 1); -- spawn portal to The Void
@@ -71,18 +73,18 @@ function MOD:PostUpdate()
         end
     elseif chompskiKeeper ~= nil then -- found spawn location of chompski
         if chompskiKeeper:HasMortalDamage() then -- check if chompski keeper was destroyed
-            Isaac.Spawn(EntityType.ENTITY_PICKUP, PickupVariant.PICKUP_TRINKET, CHOMPSKI, chompskiKeeper.Position, Vector(1, 1), mainPlayer)
+            local rng = RNG();
+            for i=1,game:GetNumPlayers(),1 do
+                Isaac.Spawn(EntityType.ENTITY_PICKUP, PickupVariant.PICKUP_TRINKET, CHOMPSKI, chompskiKeeper.Position, Vector(0.75 + rng:RandomFloat(), 0.75 + rng:RandomFloat()), mainPlayer)
+            end
             wasChompskiSpawned = true;
         end
     end
     
     -- update player stats if chompski was picked up or dropped
     if reevaluateCache then
-        for i=0,game:GetNumPlayers() - 1 do
-            local player = Isaac.GetPlayer(i);
-            if player:HasTrinket(CHOMPSKI) then
-                ReevaluateCache(player);
-            end
+        for i=0,game:GetNumPlayers()-1,1 do
+            ReevaluateCache(Isaac.GetPlayer(i));
         end
     end
 end
@@ -112,7 +114,7 @@ function Init(game, player)
 end
 
 function IsAPlayerHoldingChompski(game)
-    for i=0,game:GetNumPlayers()-1 do
+    for i=0,game:GetNumPlayers()-1,1 do
         if Isaac.GetPlayer(i):HasTrinket(CHOMPSKI) then
             return true;
         end
@@ -137,11 +139,13 @@ end
 
 -- add status changes, while holding Chompski
 function MOD:OnCache(player, cacheFlag)
-    if cacheFlag == CacheFlag.CACHE_DAMAGE then
-        player.Damage = player.Damage - 0.2
-    end
-    if cacheFlag == CacheFlag.CACHE_SPEED then
-        player.MoveSpeed = player.MoveSpeed * 0.8
+    if player:HasTrinket(CHOMPSKI) then
+        if cacheFlag == CacheFlag.CACHE_DAMAGE then
+            player.Damage = player.Damage - 0.2
+        end
+        if cacheFlag == CacheFlag.CACHE_SPEED then
+            player.MoveSpeed = player.MoveSpeed * 0.8
+        end
     end
 end
 
@@ -154,14 +158,10 @@ function MOD:OnRoomChange()
     local isCoopMode = game:GetNumPlayers() > 1;
 
     -- spawn goal to deliver chompski to when right level was reached with chompski
-    if wasChompskiSpawned and holdingChompski then
+    if wasChompskiSpawned and IsAPlayerHoldingChompski(game) then
         if level:GetStage() == LevelStage.STAGE1_2 and room:GetFrameCount() == 0 then -- Chompski was delivered to The Chest or Dark Room
             local freePosition = room:FindFreePickupSpawnPosition(Vector(80,160), 0, true);
             portalKeeper = Isaac.Spawn(EntityType.ENTITY_SHOPKEEPER, 0, 0, freePosition, Vector(0,0), mainPlayer);
-
-            for i=0,game:GetNumPlayers() - 1 do
-                Isaac.GetPlayer(i):TryRemoveTrinket(CHOMPSKI);
-            end
             
             return;
         end
@@ -179,7 +179,7 @@ function MOD:OnRoomChange()
     -- remove chompski from game when left behind
     local foundChompskis = Isaac.FindByType(EntityType.ENTITY_PICKUP, PickupVariant.PICKUP_TRINKET, CHOMPSKI);
     if foundChompskis ~= nil and #foundChompskis >= 1 then
-        for i = 1, #foundChompskis do
+        for i = 1, #foundChompskis,1 do
             foundChompskis[i]:Remove();
         end
     end
